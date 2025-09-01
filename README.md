@@ -1,5 +1,7 @@
 # HUB DE MÉTRICAS DE DESENVOLVIMENTO - SUPABASE
 
+![E2E Tests](https://github.com/barbosaisabella101085-jpg/isinha-automacao/actions/workflows/e2e.yml/badge.svg)
+
 ## 🎯 Visão Geral
 
 O Hub de Métricas de Desenvolvimento é uma solução completa para consolidar dados de desenvolvimento (cards, commits, bugs, worklogs) no Supabase, fornecendo métricas de Lead Time, Cycle Time, WIP, Throughput, CFD e outras análises essenciais para equipes ágeis.
