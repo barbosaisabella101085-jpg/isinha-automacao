@@ -1,0 +1,40 @@
+{
+  "name": "qa-automation-suite",
+  "version": "1.0.0",
+  "description": "E2E and API test automation suite",
+  "main": "index.js",
+  "scripts": {
+    "validate:env": "node validate-env.js",
+    "test:e2e": "playwright test --config qa/e2e/playwright.config.ts",
+    "test:e2e:report": "playwright show-report qa/e2e/report",
+    "test:e2e:ui": "playwright test --config qa/e2e/playwright.config.ts --ui",
+    "test:e2e:headed": "playwright test --config qa/e2e/playwright.config.ts --headed",
+    "test:e2e:one": "playwright test --config qa/e2e/playwright.config.ts",
+    "test:e2e:chromium": "playwright test --config qa/e2e/playwright.config.ts --project=chromium",
+    "test:e2e:firefox": "playwright test --config qa/e2e/playwright.config.ts --project=firefox",
+    "test:e2e:webkit": "playwright test --config qa/e2e/playwright.config.ts --project=webkit",
+    "e2e:codegen": "playwright codegen",
+    "e2e:install": "playwright install",
+    "lint": "eslint . --ext .ts",
+    "format": "prettier --write ."
+  },
+  "keywords": [
+    "playwright",
+    "e2e",
+    "testing",
+    "automation",
+    "typescript"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.41.0",
+    "dotenv": "^16.3.0",
+    "eslint": "^9.34.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.0.0"
+  }
+}
