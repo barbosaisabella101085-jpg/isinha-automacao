@@ -12,11 +12,13 @@ pids
 
 # Environment variables
 .env
+.env.*
 
 # Test results and reports
 qa/e2e/test-results/
 qa/e2e/report/
 test-results/
+**/test-results/
 
 # Logs
 logs
