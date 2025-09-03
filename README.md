@@ -108,6 +108,26 @@ Badge no topo deste README reflete o status atual da pipeline.
 
 ---
 
+## 📥 Como ver o relatório do CI (GitHub Actions)
+
+Quando a pipeline `e2e` roda no GitHub Actions, ela publica um artefato com o relatório HTML do Playwright.
+
+**Passo a passo:**
+1. Acesse **Actions** (no topo do repositório) e clique no run mais recente do workflow **e2e**.
+2. Na página do run, localize **Artifacts** → clique em **playwright-report** para baixar.
+3. Extraia o arquivo .zip e abra o arquivo `index.html` no seu navegador.
+4. Dica: os artefatos ficam disponíveis por **14 dias** (retention).
+
+**Relatórios locais:**
+- Depois de rodar os testes localmente, você pode abrir o relatório com:
+  ```bash
+  npm run test:e2e:report
+  ```
+
+O relatório é gerado em `qa/e2e/report`.
+
+---
+
 ## 🛠️ Dicas & Troubleshooting
 - **Elemento não encontrado**: verifique seletores em `qa/e2e/pages/*` e use `npx playwright codegen`.
 - **Timeouts**: ajuste `playwright.config.ts` (timeouts/globals).
