@@ -105,4 +105,12 @@ export class DashboardPage extends BasePage {
   async getDashboardTitle(): Promise<string> {
     return await this.dashboardH6.textContent() || '';
   }
+
+  /**
+   * Assert that user is logged in by checking dashboard elements
+   */
+  async assertLoggedIn(): Promise<void> {
+    await this.expectVisible(this.dashboardH6, 'Dashboard heading should be visible when logged in');
+    await this.expectVisible(this.userDropdown, 'User dropdown should be visible when logged in');
+  }
 }
