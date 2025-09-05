@@ -25,8 +25,7 @@ Automação de testes **end-to-end (E2E)** usando **Playwright + TypeScript**, c
 npm install
 
 # 2) Browsers do Playwright
-npx playwright install
-
+npx playwright instal
 # 3) Variáveis de ambiente
 cp .env.example .env
 # Edite .env com:

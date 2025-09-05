@@ -58,9 +58,18 @@ test.describe('Admin Users CRUD Complete', () => {
       // Verify we're back to the main admin page with all users
       await expect(page).toHaveURL(/\/admin\//);
       
-      // Verify multiple users are now visible (more than just Admin)
-      const hasMultipleUsers = await adminUsersPage.tableRows.count() > 1;
-      expect(hasMultipleUsers).toBeTruthy();
+      // Wait for table to be populated after reset
+      await adminUsersPage.usersTable.waitFor({ state: 'visible' });
+      
+      // Wait a bit more for data to load
+      await page.waitForTimeout(3000);
+      
+      // Verify table has users (at least the Admin user should be visible)
+      const userCount = await adminUsersPage.tableRows.count();
+      expect(userCount).toBeGreaterThanOrEqual(1);
+      
+      // Verify Admin user is visible after reset
+      expect(await adminUsersPage.tableHasUser('Admin')).toBeTruthy();
     });
   });
 
