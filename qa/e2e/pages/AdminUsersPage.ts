@@ -2,221 +2,346 @@ import { Page, Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 
 export interface UserData {
+  role: 'Admin' | 'ESS';
+  status: 'Enabled' | 'Disabled';
   employeeName: string;
   username: string;
   password: string;
+}
+
+export interface EditUserData {
   role?: 'Admin' | 'ESS';
   status?: 'Enabled' | 'Disabled';
 }
 
 /**
  * Admin Users Page Object Model
- * Handles all interactions with Admin → User Management → Users page
+ * Handles complete CRUD operations for Admin → User Management → Users page
  * 
- * Provides CRUD operations for user management in OrangeHRM
+ * Provides robust selectors with fallbacks for OrangeHRM interface
  * Follows the established Page Object Model patterns
  */
 export class AdminUsersPage extends BasePage {
+  // --- Escopo do modal "Add User"
+  // Modal (com fallbacks) - busca por container visível ou campos do form
+  get addUserModal() {
+    // Tenta encontrar o container do modal visível
+    const visibleModal = this.page.locator('.oxd-dialog-container:visible, .oxd-sheet:visible');
+    // Se não encontrar, usa o container pai do form de Add User
+    const formContainer = this.page.locator('form:has(label:has-text("User Role"))');
+    return visibleModal.or(formContainer).first();
+  }
+
+  // Campos do modal, SEM :text-is() e sempre escopados ao modal
+  get userRoleDropdown() {
+    return this.addUserModal.locator('div.oxd-input-group:has(label:has-text("User Role")) .oxd-select-text');
+  }
+  get employeeNameInput() {
+    return this.addUserModal.getByPlaceholder('Type for hints...');
+  }
+  get statusDropdown() {
+    return this.addUserModal.locator('div.oxd-input-group:has(label:has-text("Status")) .oxd-select-text');
+  }
+  get usernameInput() {
+    return this.addUserModal
+      .locator('div.oxd-input-group:has(label:has-text("Username")) input')
+      .first(); // evita strict mode
+  }
+  get passwordInput() {
+    return this.addUserModal
+      .locator('div.oxd-input-group:has(label:has-text("Password")) input[type="password"]')
+      .first();
+  }
+  get confirmPasswordInput() {
+    return this.addUserModal
+      .locator('div.oxd-input-group:has(label:has-text("Confirm Password")) input[type="password"]');
+  }
+  get saveButton() {
+    return this.addUserModal.getByRole('button', { name: 'Save' });
+  }
+
   // Navigation elements
-  readonly adminMenu: Locator;
-  readonly userManagementTab: Locator;
-  readonly usersMenuItem: Locator;
+  readonly adminMenuLink: Locator;
+  readonly systemUsersHeading: Locator;
 
-  // Form elements for creating users
+  // Action buttons
   readonly addButton: Locator;
-  readonly employeeNameInput: Locator;
-  readonly usernameInput: Locator;
-  readonly passwordInput: Locator;
-  readonly confirmPasswordInput: Locator;
-  readonly roleDropdown: Locator;
-  readonly statusDropdown: Locator;
-  readonly saveButton: Locator;
+  readonly deleteButton: Locator;
 
-  // Search and table elements
-  readonly searchUsernameInput: Locator;
-  readonly searchButton: Locator;
+  // Form de busca — seletores tolerantes (mas estáveis)
+  // Form de busca: prioriza o painel de filtros; fallback para primeiro <form>
+  get searchForm() {
+    return this.page.locator('.oxd-table-filter, .oxd-table-header, form').first();
+  }
+  get searchUsernameInput() {
+    // Busca apenas inputs de busca na tabela, excluindo modais
+    return this.page.locator('.oxd-table-filter input, .oxd-table-header input')
+      .first()
+      .or(this.page.locator('form:not(:has(label:has-text("Employee Name"))) input[type="text"]'))
+      .first();
+  }
+  get searchButton() {
+    return this.searchForm.getByRole('button', { name: 'Search' })
+      .or(this.page.getByRole('button', { name: 'Search' }));
+  }
+  get resetButton() {
+    return this.searchForm.getByRole('button', { name: 'Reset' })
+      .or(this.page.getByRole('button', { name: 'Reset' }));
+  }
+
+  // Containers
   readonly usersTable: Locator;
-  readonly resetButton: Locator;
 
-  // Success/feedback elements
-  readonly successToast: Locator;
+  // Table and results
+  readonly tableRows: Locator;
+  readonly noRecordsMessage: Locator;
+
+  // Confirmation elements
   readonly deleteConfirmButton: Locator;
+  readonly successToast: Locator;
 
   constructor(page: Page) {
     super(page);
     
-    // Navigation selectors - robust OrangeHRM specific
-    this.adminMenu = page.getByRole('link', { name: 'Admin' }).or(page.locator('a:has-text("Admin")')).first();
-    this.userManagementTab = page.getByRole('tab', { name: 'User Management' }).or(page.getByText('User Management'));
-    this.usersMenuItem = page.getByRole('link', { name: 'Users' }).or(page.getByText('Users', { exact: true }));
+    // Navigation selectors with robust fallbacks
+    this.adminMenuLink = page.getByRole('link', { name: 'Admin' })
+      .or(page.locator('.oxd-main-menu-item').filter({ hasText: 'Admin' }));
+    
+    this.systemUsersHeading = page.getByRole('heading', { name: 'System Users' })
+      .or(page.locator('h6:has-text("System Users")'));
 
-    // Form elements with more specific selectors for OrangeHRM
-    this.addButton = page.getByRole('button', { name: /add/i }).first();
-    this.employeeNameInput = page.getByPlaceholder('Type for hints...');
-    this.usernameInput = page.locator('.oxd-input').nth(1); // Second input after employee name
-    this.passwordInput = page.locator('input[type="password"]').first();
-    this.confirmPasswordInput = page.locator('input[type="password"]').nth(1);
-    this.saveButton = page.getByRole('button', { name: /save/i });
+    // Action buttons
+    this.addButton = page.getByRole('button', { name: 'Add' });
+    this.deleteButton = page.getByRole('button', { name: 'Delete Selected' })
+      .or(page.locator('button:has-text("Delete")'));
 
-    // Dropdown selectors - more specific for OrangeHRM
-    this.roleDropdown = page.locator('.oxd-select-text-input').first();
-    this.statusDropdown = page.locator('.oxd-select-text-input').nth(1);
+    // Containers
+    this.usersTable = page.locator('.oxd-table').first();
 
-    // Search elements - target the search form specifically
-    this.searchUsernameInput = page.locator('.oxd-form .oxd-input').first();
-    this.searchButton = page.getByRole('button', { name: /search/i });
-    this.resetButton = page.getByRole('button', { name: /reset/i });
+    // Table and results
+    this.tableRows = this.usersTable.locator('.oxd-table-row:has(.oxd-table-cell), .oxd-table-row:has(td)');
+    this.noRecordsMessage = page.getByText('No Records Found')
+      .or(page.locator(':has-text("No Records")'));
 
-    // Table and feedback
-    this.usersTable = page.locator('.oxd-table-body, table tbody').first();
-    this.successToast = page.locator('.oxd-toast--success, .toast-success').or(page.getByText(/successfully|success/i));
-    this.deleteConfirmButton = page.getByRole('button', { name: /yes.*delete/i }).or(page.locator('button:has-text("Yes, Delete")'));
+    // Confirmation elements
+    this.deleteConfirmButton = page.getByRole('button', { name: 'Yes, Delete' })
+      .or(page.locator('button:has-text("Yes")'));
+    
+    this.successToast = page.locator('.oxd-toast--success')
+      .or(page.getByText(/successfully|success/i));
   }
 
   /**
    * Navigate to Admin → User Management → Users page
    */
-  async goto(): Promise<void> {
-    // Click Admin menu
-    await this.adminMenu.click();
-    
-    // Wait for admin page to load
-    await this.page.waitForURL(/admin/i, { timeout: 15000 });
-    
-    // Wait for the page elements to be visible
-    await this.page.waitForTimeout(2000); // Allow page to stabilize
-    
-    // Verify we're on the admin page with user management
-    await this.expectVisible(this.addButton, 'Add button should be visible on admin users page');
+  async gotoAdmin(): Promise<void> {
+    await this.adminMenuLink.click();
+    await this.page.waitForURL(/\/admin\//i, { timeout: 15000 });
+    await this.expectVisible(this.systemUsersHeading, 'System Users heading should be visible');
   }
 
   /**
-   * Create a new user with the provided data
-   * @param data - User data object containing required fields
+   * Check if currently on the admin users page
    */
-  async createUser(data: UserData): Promise<void> {
-    const { employeeName, username, password, role = 'ESS', status = 'Enabled' } = data;
+  async isOnPage(): Promise<boolean> {
+    try {
+      const urlMatches = this.page.url().includes('/admin/');
+      const headingVisible = await this.systemUsersHeading.isVisible({ timeout: 5000 });
+      return urlMatches && headingVisible;
+    } catch {
+      return false;
+    }
+  }
 
-    // Click Add button to open create form
+  /**
+   * Open the Add User form
+   */
+  async openAddUser(): Promise<void> {
     await this.addButton.click();
-    
-    // Wait for form to be visible
-    await this.page.waitForTimeout(3000); // Give time for form to load
-    
+
+    // Espera mais robusta: qualquer indicação de que o form está aberto
+    await Promise.race([
+      this.page.getByRole('heading', { name: 'Add User' }).waitFor({ state: 'visible', timeout: 8000 }),
+      this.page.locator('label:has-text("User Role")').waitFor({ state: 'visible', timeout: 8000 }),
+      this.page.locator('label:has-text("Employee Name")').waitFor({ state: 'visible', timeout: 8000 }),
+    ]);
+
+    // Aguarda um pouco para garantir que o form está totalmente carregado
+    await this.page.waitForTimeout(1000);
+  }
+
+  /**
+   * Create a new user with comprehensive form handling
+   */
+  async createUser(params: UserData): Promise<void> {
+    const { role, status, employeeName, username, password } = params;
+
+    // Select User Role
+    await this.userRoleDropdown.click();
+    await this.page.locator('[role="listbox"]').last().getByText(role, { exact: true }).click();
+
     // Fill Employee Name and select from autocomplete
     await this.employeeNameInput.fill(employeeName);
-    
-    // Wait for autocomplete dropdown and select first option
-    await this.page.waitForTimeout(2000);
-    const autocompleteOption = this.page.locator('.oxd-autocomplete-option').first();
-    await autocompleteOption.waitFor({ state: 'visible', timeout: 10000 });
-    await autocompleteOption.click();
+    await this.page.getByRole('option', { name: new RegExp(`^${employeeName}$`, 'i') }).first().click();
 
-    // Fill Username - wait for field to be enabled
-    await this.page.waitForTimeout(1000);
-    await this.usernameInput.fill(username);
-
-    // Select Role
-    await this.roleDropdown.click();
-    await this.page.waitForTimeout(1000);
-    const roleOption = this.page.getByRole('option', { name: new RegExp(role, 'i') }).or(this.page.locator(`text=${role}`));
-    await roleOption.click();
-
-    // Select Status  
+    // Select Status
     await this.statusDropdown.click();
-    await this.page.waitForTimeout(1000);
-    const statusOption = this.page.getByRole('option', { name: new RegExp(status, 'i') }).or(this.page.locator(`text=${status}`));
-    await statusOption.click();
+    await this.page.locator('[role="listbox"]').last().getByText(status, { exact: true }).click();
 
-    // Fill passwords
+    // Fill credentials
+    await this.usernameInput.fill(username);
     await this.passwordInput.fill(password);
     await this.confirmPasswordInput.fill(password);
 
-    // Save the user
+    // Save and wait for success
     await this.saveButton.click();
-
-    // Wait for success confirmation
+    await this.page.waitForLoadState('networkidle');
+    await expect(this.usersTable).toBeVisible();
     await this.expectVisible(this.successToast, 'Success message should appear after creating user');
     
-    // Wait for redirect back to users list
-    await this.page.waitForURL(/admin/i, { timeout: 15000 });
+    // Wait for navigation back to list
+    await this.page.waitForURL(/\/admin\//i, { timeout: 15000 });
   }
 
   /**
    * Search for a user by username
-   * @param username - Username to search for
    */
   async search(username: string): Promise<void> {
-    // Clear any existing search first
-    await this.resetButton.click();
-    await this.page.waitForTimeout(2000); // Wait for reset to complete
+    // Aguarda elementos de busca estarem prontos
+    await this.page.waitForTimeout(1000); // Pequena pausa para estabilizar
+    await this.searchUsernameInput.waitFor({ state: 'visible', timeout: 10000 });
 
-    // Fill search username in the first input field (search form)
+    // Limpa campo anterior e preenche
+    await this.searchUsernameInput.clear();
     await this.searchUsernameInput.fill(username);
-    await this.page.waitForTimeout(1000);
-
-    // Click search button
     await this.searchButton.click();
-
-    // Wait for search results to load
-    await this.page.waitForTimeout(3000);
+    
+    // Aguarda processamento da busca
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(2000); // Aguarda resultados carregarem
   }
 
   /**
-   * Assert that a user row exists in the table
-   * @param username - Username to verify in the table
+   * Check if the table contains a specific user
    */
-  async assertUserRow(username: string): Promise<void> {
-    const userRow = this.page.getByRole('row', { name: new RegExp(`\\b${username}\\b`) });
-    await this.expectVisible(userRow, `User row with username '${username}' should be visible in table`);
+  async tableHasUser(username: string): Promise<boolean> {
+    try {
+      // Aguarda tabela estar carregada
+      await this.usersTable.waitFor({ state: 'visible', timeout: 5000 });
+      
+      // Busca por diferentes padrões de username na tabela
+      const userRow = this.usersTable.locator(
+        `.oxd-table-row:has-text("${username}"), ` +
+        `.oxd-table-row:has(.oxd-table-cell:has-text("${username}"))`
+      ).first();
+      
+      return await userRow.count() > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Open a user from the table for editing
+   */
+  async openUserFromTable(username: string): Promise<void> {
+    const userRow = this.tableRows.filter({ hasText: username });
+    await this.expectVisible(userRow, `User row with username '${username}' should be visible`);
+    
+    // Click on the username link or edit icon
+    const editButton = userRow.locator('.oxd-icon-button').first()
+      .or(userRow.getByText(username));
+    await editButton.click();
+    
+    // Wait for edit form to load
+    await this.page.waitForTimeout(2000);
+    await this.expectVisible(this.saveButton, 'Save button should be visible in edit form');
+  }
+
+  /**
+   * Edit current user with partial data
+   */
+  async editCurrentUser(params: EditUserData): Promise<void> {
+    const { role, status } = params;
+
+    if (role) {
+      await this.userRoleDropdown.click();
+      await this.page.waitForTimeout(1000);
+      const roleOption = this.page.getByRole('option', { name: role });
+      await roleOption.click();
+    }
+
+    if (status) {
+      await this.statusDropdown.click();
+      await this.page.waitForTimeout(1000);
+      const statusOption = this.page.getByRole('option', { name: status });
+      await statusOption.click();
+    }
+
+    // Save changes
+    await this.saveButton.click();
+    await this.expectVisible(this.successToast, 'Success message should appear after editing user');
+    
+    // Wait for navigation back to list
+    await this.page.waitForURL(/\/admin\//i, { timeout: 15000 });
+    await this.page.waitForLoadState('networkidle');
   }
 
   /**
    * Delete a user by username
-   * @param username - Username of the user to delete
    */
   async deleteUser(username: string): Promise<void> {
-    // First search for the user to ensure it's visible
+    // First search for the user
     await this.search(username);
     
-    // Find the user row
-    const userRow = this.page.getByRole('row', { name: new RegExp(`\\b${username}\\b`) });
+    // Find and select the user row checkbox
+    const userRow = this.tableRows.filter({ hasText: username });
     await this.expectVisible(userRow, `User row with username '${username}' should be visible`);
+    
+    const checkbox = userRow.locator('input[type="checkbox"]');
+    await checkbox.click();
 
-    // Find and click delete button in the user row
-    const deleteButton = userRow.getByRole('button').or(userRow.locator('.oxd-icon-button')).last();
-    await deleteButton.click();
+    // Click delete button
+    await this.deleteButton.click();
 
-    // Confirm deletion
+    // Confirm deletion in modal
     await this.expectVisible(this.deleteConfirmButton, 'Delete confirmation button should be visible');
     await this.deleteConfirmButton.click();
 
-    // Wait for success confirmation
+    // Wait for success message
     await this.expectVisible(this.successToast, 'Success message should appear after deleting user');
+    await this.page.waitForLoadState('networkidle');
   }
 
   /**
-   * Verify the admin users page is loaded
+   * Reset search form to initial state
    */
-  async verifyAdminUsersPageLoaded(): Promise<void> {
+  async resetSearch(): Promise<void> {
+    await this.resetButton.click();
+    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForTimeout(2000); // Aguarda resultados carregarem
+  }
+
+  /**
+   * Verify the admin users page is properly loaded
+   */
+  async verifyPageLoaded(): Promise<void> {
+    await this.expectVisible(this.systemUsersHeading, 'System Users heading should be visible');
     await this.expectVisible(this.addButton, 'Add button should be visible');
     await this.expectVisible(this.searchButton, 'Search button should be visible');
-    await this.expectVisible(this.usersTable, 'Users table should be visible');
   }
 
   /**
-   * Get total number of user rows in the table
+   * Get a table row by username
    */
-  async getUserRowsCount(): Promise<number> {
-    const rows = this.page.getByRole('row').filter({ hasText: /\w+/ }); // Filter out empty rows
-    return await rows.count();
+  rowByUsername(username: string): Locator {
+    return this.usersTable.locator(`.oxd-table-row:has-text("${username}")`).first();
   }
 
   /**
-   * Clear all search filters
+   * Get checkbox in a specific user row
    */
-  async clearSearch(): Promise<void> {
-    await this.resetButton.click();
-    await this.page.waitForTimeout(1000);
+  checkboxInRow(username: string): Locator {
+    return this.rowByUsername(username).locator('input[type="checkbox"]').first();
   }
 }
